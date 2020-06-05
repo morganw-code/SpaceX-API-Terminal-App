@@ -1,24 +1,63 @@
 import { Endpoint } from "./constants/Constants.ts";
-import { ILaunchPad } from "./interfaces/LaunchPad.ts";
+import { IInfo } from "./interfaces/Payloads.ts";
+
+type Payload = IInfo;
 
 class App {
-  makeRequestAndHandle(endpoint: Endpoint, cb: Function) {
-    fetch(endpoint)
-      .then((response) => {
-        return response.json();
-      })
-      .then((json) => {
-        cb(json);
+  private payload: Payload | null = null;
+  private infoPayload: Payload | null = null;
+  constructor() {}
+
+  async getRequest(endpoint: Endpoint, id = 0) {
+    await fetch(endpoint)
+      .then(async (response) => {
+        return await response.json();
+      }).then((payload) => {
+        // set current payload
+        this.payload = payload;
       })
       .catch((error) => {
         console.log(error);
       });
   }
 
-  printData(obj: any) {
-    console.log(obj);
+  async setInfo() {
+    await this.getRequest(Endpoint.INFO);
+    if(this.payload !== null) {
+      this.infoPayload = {
+        name: this.payload.name,
+        founder: this.payload.founder,
+        founded: this.payload.founded,
+        employees: this.payload.employees,
+        vehicles: this.payload.vehicles,
+        launch_sites: this.payload.launch_sites,
+        test_sites: this.payload.test_sites,
+        ceo: this.payload.ceo,
+        cto: this.payload.cto,
+        coo: this.payload.coo,
+        cto_propulsion: this.payload.cto_propulsion,
+        valuation: this.payload.valuation,
+        headquarters: this.payload.headquarters,
+        summary: this.payload.summary
+      }
+    } else {
+      console.log("was null");
+    }
+  }
+
+  getInfo() {
+    return this.infoPayload;
+  }
+
+  printData(obj: any = undefined) {
+    if (obj !== undefined) {
+      console.log(obj);
+    } else {
+      console.log(this.payload);
+    }
   }
 }
 
 const app = new App();
-app.makeRequestAndHandle(Endpoint.LATEST_LAUNCHES, app.printData);
+await app.setInfo();
+app.printData(app.getInfo());
