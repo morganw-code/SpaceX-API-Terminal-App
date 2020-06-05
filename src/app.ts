@@ -1,4 +1,9 @@
-import { Application, Router } from "https://deno.land/x/oak/mod.ts";
+import { Application, Router, send } from "https://deno.land/x/oak/mod.ts";
+import {
+  viewEngine,
+  engineFactory,
+  adapterFactory,
+} from "https://deno.land/x/view_engine/mod.ts";
 
 import { Endpoint } from "./constants/constants.ts";
 import { IInfo } from "./interfaces/types.ts";
@@ -9,18 +14,21 @@ type Payload = IInfo | null;
 class App {
   private payload: Payload = null;
   private infoPayload: Payload = null;
-  constructor(
-    private router: Router = new Router(),
-    private app: Application = new Application(),
-    private readonly port = 3000,
-    private readonly statsController = new StatsController()
-  ) {
-    router
-      .get("/stats", statsController.show)
-      .patch("/stats/:id", statsController.update);
+  private statsController: StatsController = new StatsController();
+  private router: Router = new Router();
+  private app: Application = new Application();
+  private readonly port = 3000;
 
-    app.use(router.routes());
-    app.use(router.allowedMethods());
+  private ejsEngine: any;
+  private oakAdapter: any;
+
+  constructor() {
+    this.router.get("/stats", this.statsController.index);
+    this.ejsEngine = engineFactory.getEjsEngine();
+    this.oakAdapter = adapterFactory.getOakAdapter();
+    this.app.use(viewEngine(this.oakAdapter, this.ejsEngine));
+    this.app.use(this.router.routes());
+    this.app.use(this.router.allowedMethods());
   }
 
   async run() {

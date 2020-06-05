@@ -1,7 +1,6 @@
 export default class StatsController {
-  show(context: any) {
-    // send the response
-    context.response.body = "Works!";
+  index(context: any) {
+    context.render("views/stats/index.ejs", { data: { msg: "Hello" } });
     context.response.status = 200;
   }
 
