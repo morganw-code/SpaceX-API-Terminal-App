@@ -1,18 +1,38 @@
-import { Endpoint } from "./constants/Constants.ts";
-import { IInfo } from "./interfaces/Payloads.ts";
+import { Application, Router } from "https://deno.land/x/oak/mod.ts";
 
-type Payload = IInfo;
+import { Endpoint } from "./constants/constants.ts";
+import { IInfo } from "./interfaces/types.ts";
+import StatsController from "./controllers/statsController.ts";
+
+type Payload = IInfo | null;
 
 class App {
-  private payload: Payload | null = null;
-  private infoPayload: Payload | null = null;
-  constructor() {}
+  private payload: Payload = null;
+  private infoPayload: Payload = null;
+  constructor(
+    private router: Router = new Router(),
+    private app: Application = new Application(),
+    private readonly port = 3000,
+    private readonly statsController = new StatsController()
+  ) {
+    router
+      .get("/stats", statsController.show)
+      .patch("/stats/:id", statsController.update);
+
+    app.use(router.routes());
+    app.use(router.allowedMethods());
+  }
+
+  async run() {
+    await this.app.listen({ port: this.port });
+  }
 
   async getRequest(endpoint: Endpoint, id = 0) {
     await fetch(endpoint)
       .then(async (response) => {
         return await response.json();
-      }).then((payload) => {
+      })
+      .then((payload) => {
         // set current payload
         this.payload = payload;
       })
@@ -23,23 +43,23 @@ class App {
 
   async setInfo() {
     await this.getRequest(Endpoint.INFO);
-    if(this.payload !== null) {
+    if (this.payload !== null) {
       this.infoPayload = {
-        name: this.payload.name,
-        founder: this.payload.founder,
-        founded: this.payload.founded,
-        employees: this.payload.employees,
-        vehicles: this.payload.vehicles,
-        launch_sites: this.payload.launch_sites,
-        test_sites: this.payload.test_sites,
-        ceo: this.payload.ceo,
-        cto: this.payload.cto,
-        coo: this.payload.coo,
-        cto_propulsion: this.payload.cto_propulsion,
-        valuation: this.payload.valuation,
-        headquarters: this.payload.headquarters,
-        summary: this.payload.summary
-      }
+        name: this.payload?.name,
+        founder: this.payload?.founder,
+        founded: this.payload?.founded,
+        employees: this.payload?.employees,
+        vehicles: this.payload?.vehicles,
+        launch_sites: this.payload?.launch_sites,
+        test_sites: this.payload?.test_sites,
+        ceo: this.payload?.ceo,
+        cto: this.payload?.cto,
+        coo: this.payload?.coo,
+        cto_propulsion: this.payload?.cto_propulsion,
+        valuation: this.payload?.valuation,
+        headquarters: this.payload?.headquarters,
+        summary: this.payload?.summary,
+      };
     } else {
       console.log("was null");
     }
@@ -60,4 +80,5 @@ class App {
 
 const app = new App();
 await app.setInfo();
+app.run();
 app.printData(app.getInfo());
