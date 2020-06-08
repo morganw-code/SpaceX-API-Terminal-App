@@ -1,3 +1,5 @@
+import { Payload, PayloadName } from "../constants/types.ts"
+
 export interface IInfo {
   name?: string;
   founder?: string;
@@ -17,4 +19,9 @@ export interface IInfo {
     state?: string;
   };
   summary?: string;
+}
+
+export interface IPayloadCacheItem {
+  name: PayloadName;
+  payload: Payload;
 }

@@ -3,27 +3,34 @@ import {
   viewEngine,
   engineFactory,
   adapterFactory,
+  Adapter,
+  Engine,
 } from "https://deno.land/x/view_engine/mod.ts";
 
 import { Endpoint } from "./constants/constants.ts";
-import { IInfo } from "./interfaces/types.ts";
+import { Payload, PayloadName } from "./constants/types.ts";
+import { IPayloadCacheItem } from "./interfaces/types.ts";
 import StatsController from "./controllers/statsController.ts";
 
-type Payload = IInfo | null;
-
 class App {
-  private payload: Payload = null;
-  private infoPayload: Payload = null;
   private statsController: StatsController = new StatsController();
   private router: Router = new Router();
   private app: Application = new Application();
   private readonly port = 3000;
 
-  private ejsEngine: any;
-  private oakAdapter: any;
+  private ejsEngine: Engine;
+  private oakAdapter: Adapter;
+
+  private payloadCache: [IPayloadCacheItem?] = [];
 
   constructor() {
-    this.router.get("/stats", this.statsController.index);
+    // define routes
+    this.router.get("/stats", (context) => {
+      let data: string | number = "World";
+      this.statsController.index(context, data);
+    });
+
+    // setup view engine to use ejs & oak, and register middleware
     this.ejsEngine = engineFactory.getEjsEngine();
     this.oakAdapter = adapterFactory.getOakAdapter();
     this.app.use(viewEngine(this.oakAdapter, this.ejsEngine));
@@ -32,61 +39,56 @@ class App {
   }
 
   async run() {
+    // start the listener
     await this.app.listen({ port: this.port });
   }
 
-  async getRequest(endpoint: Endpoint, id = 0) {
+  async getRequest(endpoint: Endpoint, payloadName: PayloadName) {
     await fetch(endpoint)
       .then(async (response) => {
         return await response.json();
       })
-      .then((payload) => {
+      .then((json) => {
         // set current payload
-        this.payload = payload;
+        this.payloadCache.push({
+          name: payloadName,
+          payload: json,
+        });
       })
       .catch((error) => {
         console.log(error);
       });
   }
 
-  async setInfo() {
-    await this.getRequest(Endpoint.INFO);
-    if (this.payload !== null) {
-      this.infoPayload = {
-        name: this.payload?.name,
-        founder: this.payload?.founder,
-        founded: this.payload?.founded,
-        employees: this.payload?.employees,
-        vehicles: this.payload?.vehicles,
-        launch_sites: this.payload?.launch_sites,
-        test_sites: this.payload?.test_sites,
-        ceo: this.payload?.ceo,
-        cto: this.payload?.cto,
-        coo: this.payload?.coo,
-        cto_propulsion: this.payload?.cto_propulsion,
-        valuation: this.payload?.valuation,
-        headquarters: this.payload?.headquarters,
-        summary: this.payload?.summary,
-      };
-    } else {
-      console.log("was null");
+  async setPayload(endpoint: Endpoint, payloadName: PayloadName) {
+    await this.getRequest(endpoint, payloadName);
+  }
+
+  async getPayload(endpoint: Endpoint, payloadName: PayloadName, tries: number = 0) {
+    for (const entry of this.payloadCache) {
+      if (entry?.name === payloadName) {
+        return entry;
+      }
+    }
+
+    if (tries < 3) {
+      await this.setPayload(endpoint, payloadName);
+      this.getPayload(endpoint, payloadName, tries++);
+    } else if (tries > 3) {
+      console.log({
+        message: `Failed to retrieve ${payloadName}`,
+      });
     }
   }
 
-  getInfo() {
-    return this.infoPayload;
-  }
-
-  printData(obj: any = undefined) {
-    if (obj !== undefined) {
-      console.log(obj);
-    } else {
-      console.log(this.payload);
-    }
+  printData(obj: Object) {
+    console.log(obj);
   }
 }
 
 const app = new App();
-await app.setInfo();
+await app.setPayload(Endpoint.INFO, "info");
+await app.setPayload(Endpoint.LATEST_LAUNCHES, "latest-launches");
 app.run();
-app.printData(app.getInfo());
+app.printData(app.getPayload(Endpoint.LATEST_LAUNCHES, "latest-launches"));
+app.printData(app.getPayload(Endpoint.INFO, "info"));
